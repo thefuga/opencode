@@ -294,8 +294,14 @@ export class RunFooter implements FooterApi {
     this.renderer.on(CliRenderEvents.DESTROY, this.handleDestroy)
     this.renderer.on(CliRenderEvents.PALETTE, this.handlePalette)
     this.renderer.on(CliRenderEvents.THEME_MODE, this.handleThemeRefresh)
-    this.renderer.prependInputHandler(this.handleThemeNotification)
-    process.on("SIGUSR2", this.handleThemeSignal)
+    // handleThemeRefresh() itself no-ops when theme_auto_refresh is off, but skip
+    // registering the notification/signal listeners entirely in that case too —
+    // no reason to pay for the subscription when the OSC re-probe they trigger
+    // is disabled (default under tmux/screen; see theme_auto_refresh docs).
+    if (options.tuiConfig.theme_auto_refresh) {
+      this.renderer.prependInputHandler(this.handleThemeNotification)
+      process.on("SIGUSR2", this.handleThemeSignal)
+    }
 
     const footer = this
     void render(
@@ -1042,6 +1048,12 @@ export class RunFooter implements FooterApi {
 
   private handleThemeRefresh = (): void => {
     if (this.isGone) {
+      return
+    }
+
+    // Skip re-probing when disabled (default under tmux/screen): the OSC 10/11
+    // query/reply can be misrouted to the wrong pane by the multiplexer.
+    if (!this.options.tuiConfig.theme_auto_refresh) {
       return
     }
 

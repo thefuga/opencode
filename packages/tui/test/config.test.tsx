@@ -80,6 +80,34 @@ test("resolves overrides without mutating input", () => {
   expect(input.keybinds).toEqual({ session_list: "ctrl+l" })
 })
 
+test("defaults theme_auto_refresh based on multiplexer env, unless overridden", () => {
+  const savedTmux = process.env.TMUX
+  const savedSty = process.env.STY
+  try {
+    delete process.env.TMUX
+    delete process.env.STY
+    expect(resolve({}, { terminalSuspend: true }).theme_auto_refresh).toBe(true)
+
+    process.env.TMUX = "/tmp/tmux-1000/default,1234,0"
+    expect(resolve({}, { terminalSuspend: true }).theme_auto_refresh).toBe(false)
+    // Explicit override always wins over the tmux-derived default.
+    expect(resolve({ theme_auto_refresh: true }, { terminalSuspend: true }).theme_auto_refresh).toBe(true)
+    delete process.env.TMUX
+
+    process.env.STY = "1234.pts-0.host"
+    expect(resolve({}, { terminalSuspend: true }).theme_auto_refresh).toBe(false)
+    expect(resolve({ theme_auto_refresh: false }, { terminalSuspend: true }).theme_auto_refresh).toBe(false)
+    delete process.env.STY
+
+    expect(resolve({ theme_auto_refresh: "auto" }, { terminalSuspend: true }).theme_auto_refresh).toBe(true)
+  } finally {
+    if (savedTmux === undefined) delete process.env.TMUX
+    else process.env.TMUX = savedTmux
+    if (savedSty === undefined) delete process.env.STY
+    else process.env.STY = savedSty
+  }
+})
+
 test("resolves a session move keybind", () => {
   const config = resolve({ keybinds: { session_move: "ctrl+o" } }, { terminalSuspend: true })
 

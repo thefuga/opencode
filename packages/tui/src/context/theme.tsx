@@ -182,6 +182,9 @@ export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
     let systemRefreshQueued = false
     let systemRefreshMode = store.mode
     function refreshSystemTheme(mode: "dark" | "light" = store.mode) {
+      // Skip re-probing when disabled (default under tmux/screen): the OSC 10/11
+      // query/reply can be misrouted to the wrong pane by the multiplexer.
+      if (!config.theme_auto_refresh) return
       systemRefreshMode = mode
       if (systemRefreshRunning) {
         systemRefreshQueued = true
@@ -230,7 +233,12 @@ export const { use: useTheme, provider: ThemeProvider } = createSimpleContext({
       queueMicrotask(() => refreshSystemTheme())
       return false
     }
-    renderer.prependInputHandler(handleThemeNotification)
+    // refreshSystemTheme() itself no-ops when theme_auto_refresh is off, but skip
+    // registering the notification listener entirely in that case — it has no
+    // other purpose, so there's no reason to pay for the subscription.
+    if (config.theme_auto_refresh) {
+      renderer.prependInputHandler(handleThemeNotification)
+    }
 
     let themeRefreshTimeouts: ReturnType<typeof setTimeout>[] = []
     const refresh = () => {

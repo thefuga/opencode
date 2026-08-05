@@ -63,10 +63,16 @@ export const Info = Schema.Struct({
   scroll_acceleration: Schema.optional(ScrollAcceleration),
   diff_style: Schema.optional(DiffStyle),
   mouse: Schema.optional(Schema.Boolean).annotate({ description: "Enable or disable mouse capture (default: true)" }),
+  theme_auto_refresh: Schema.optional(Schema.Union([Schema.Boolean, Schema.Literal("auto")])).annotate({
+    description:
+      "Re-query the terminal palette after theme-change notifications and reload signals. " +
+      "'auto' (default) enables this outside tmux/screen and disables it inside, since the OSC " +
+      "10/11 query/reply can be misrouted to the wrong pane under a multiplexer. Set true/false to override.",
+  }),
 })
 export type Info = Schema.Schema.Type<typeof Info>
 
-export type Resolved = Omit<Info, "attention" | "keybinds" | "leader_timeout" | "mouse"> & {
+export type Resolved = Omit<Info, "attention" | "keybinds" | "leader_timeout" | "mouse" | "theme_auto_refresh"> & {
   attention: {
     enabled: boolean
     notifications: boolean
@@ -78,6 +84,7 @@ export type Resolved = Omit<Info, "attention" | "keybinds" | "leader_timeout" | 
   keybinds: TuiKeybind.BindingLookupView
   leader_timeout: number
   mouse: boolean
+  theme_auto_refresh: boolean
 }
 
 export const ResolveOptions = Schema.Struct({
@@ -113,6 +120,10 @@ export function resolve(input: Info, options: ResolveOptions): Resolved {
     }),
     leader_timeout: input.leader_timeout ?? LeaderTimeoutDefault,
     mouse: input.mouse ?? true,
+    theme_auto_refresh:
+      input.theme_auto_refresh === true || input.theme_auto_refresh === false
+        ? input.theme_auto_refresh
+        : !(process.env.TMUX || process.env.STY),
   }
 }
 
