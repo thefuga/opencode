@@ -30,6 +30,14 @@ export const ScrollAcceleration = Schema.Struct({
 export const DiffStyle = Schema.Literals(["auto", "stacked"]).annotate({
   description: "Control diff rendering style: 'auto' adapts to terminal width, 'stacked' always shows single column",
 })
+export const Cursor = Schema.Struct({
+  style: Schema.optional(Schema.Literals(["block", "underline", "line", "default"])).annotate({
+    description: "Cursor shape. Use 'default' to preserve the terminal setting",
+  }),
+  blinking: Schema.optional(Schema.Boolean).annotate({
+    description: "Whether the cursor blinks. Has no effect when style is 'default'",
+  }),
+}).annotate({ description: "Terminal cursor settings" })
 
 export const AttentionSounds = Schema.Record(AttentionSoundName, Schema.optionalKey(Schema.String))
 export type AttentionSoundPaths = Schema.Schema.Type<typeof AttentionSounds>
@@ -62,6 +70,7 @@ export const Info = Schema.Struct({
   scroll_speed: Schema.optional(ScrollSpeed).annotate({ description: "TUI scroll speed" }),
   scroll_acceleration: Schema.optional(ScrollAcceleration),
   diff_style: Schema.optional(DiffStyle),
+  cursor: Schema.optional(Cursor),
   mouse: Schema.optional(Schema.Boolean).annotate({ description: "Enable or disable mouse capture (default: true)" }),
   theme_auto_refresh: Schema.optional(Schema.Union([Schema.Boolean, Schema.Literal("auto")])).annotate({
     description:
@@ -72,7 +81,10 @@ export const Info = Schema.Struct({
 })
 export type Info = Schema.Schema.Type<typeof Info>
 
-export type Resolved = Omit<Info, "attention" | "keybinds" | "leader_timeout" | "mouse" | "theme_auto_refresh"> & {
+export type Resolved = Omit<
+  Info,
+  "attention" | "keybinds" | "leader_timeout" | "mouse" | "cursor" | "theme_auto_refresh"
+> & {
   attention: {
     enabled: boolean
     notifications: boolean
@@ -85,6 +97,10 @@ export type Resolved = Omit<Info, "attention" | "keybinds" | "leader_timeout" | 
   leader_timeout: number
   mouse: boolean
   theme_auto_refresh: boolean
+  cursor?: {
+    style: "block" | "underline" | "line" | "default"
+    blinking: boolean
+  }
 }
 
 export const ResolveOptions = Schema.Struct({
@@ -124,6 +140,12 @@ export function resolve(input: Info, options: ResolveOptions): Resolved {
       input.theme_auto_refresh === true || input.theme_auto_refresh === false
         ? input.theme_auto_refresh
         : !(process.env.TMUX || process.env.STY),
+    cursor: input.cursor
+      ? {
+          style: input.cursor.style ?? "block",
+          blinking: input.cursor.blinking ?? true,
+        }
+      : undefined,
   }
 }
 
